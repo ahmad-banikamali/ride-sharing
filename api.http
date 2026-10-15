@@ -1,0 +1,29 @@
+
+### Health check
+GET http://localhost:8080/health
+
+### Create a trip
+POST http://localhost:8080/trips
+Content-Type: application/json
+
+{
+  "pickup": "Berlin",
+  "destination": "Hamburg"
+}
+
+### Get an existing trip
+GET http://localhost:8080/trips/1
+
+### Get a non-existing trip
+GET http://localhost:8080/trips/999
+
+### Invalid trip ID
+GET http://localhost:8080/trips/abc
+
+### Invalid JSON
+POST http://localhost:8080/trips
+Content-Type: application/json
+
+{
+  "pickup":
+}
