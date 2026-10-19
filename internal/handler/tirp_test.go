@@ -4,15 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"ride-sharing/internal/repository"
 	"ride-sharing/internal/service"
 	"strings"
 	"testing"
 )
 
 func newTestHandler() *TripHandler {
-	repo := repository.NewTripRepository()
-	svc := service.NewTripService(repo)
+	svc := service.NewFakeService()
 	return NewTripHandler(svc)
 }
 

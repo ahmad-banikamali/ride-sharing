@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"ride-sharing/internal/handler"
+	"ride-sharing/internal/service"
 	"strings"
 	"testing"
 )
 
 func TestTripHTTPFlow(t *testing.T) {
-	router := newRouter()
+	ts := service.NewFakeService()
+	th := handler.NewTripHandler(ts)
+
+	router := newRouter(th)
 
 	// Create a trip.
 	createReq := httptest.NewRequest(

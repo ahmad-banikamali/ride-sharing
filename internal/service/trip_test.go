@@ -1,20 +1,12 @@
 package service
 
-import "testing"
-
-type fakeTripRepository struct{}
-
-func (fakeTripRepository) Save(trip Trip) (Trip, error) {
-	return trip, nil
-}
-
-func (fakeTripRepository) GetById(id int) (Trip, error) {
-	return Trip{}, nil
-}
+import (
+	"testing"
+)
 
 func TestTripService_CreateTrip(t *testing.T) {
-	repository := &fakeTripRepository{}
-	service := NewTripService(repository)
+	t.Helper()
+	service := NewFakeService()
 	trip, err := service.CreateTrip(CreateTripInput{
 		Pickup:      "A",
 		Destination: "B",
@@ -28,8 +20,8 @@ func TestTripService_CreateTrip(t *testing.T) {
 }
 
 func TestTripService_CreateTrip_EmptyData(t *testing.T) {
-	repository := &fakeTripRepository{}
-	service := NewTripService(repository)
+	t.Helper()
+	service := NewFakeService()
 	_, err := service.CreateTrip(CreateTripInput{})
 	if err == nil {
 		t.Fatal("expected error")
