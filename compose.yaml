@@ -4,6 +4,7 @@ name: ride-sharing
 services:
   postgres:
     image: postgres:17
+    container_name: ride_sharing-postgres
 
     environment:
       POSTGRES_DB: ride_sharing

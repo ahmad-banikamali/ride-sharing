@@ -27,21 +27,28 @@ func TestTripRepository_Save(t *testing.T) {
 	save, err := repo.Save(service.Trip{
 		Pickup:      "Tehran",
 		Destination: "Mashhad",
+		Status:      service.TripStatusRequested,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if save.ID <= 0 {
-		t.Errorf("ID was not set %v", save.ID)
+		t.Errorf("ID was not set: %v", save.ID)
 	}
+
+	if save.Status != service.TripStatusRequested {
+		t.Errorf("expected status %q, got %q",
+			service.TripStatusRequested, save.Status)
+	}
+
 	t.Cleanup(func() {
 		_, err := repo.db.Exec("DELETE FROM trips WHERE id = $1", save.ID)
 		if err != nil {
-			return
+			t.Errorf("failed to delete test trip: %v", err)
 		}
 	})
 }
-
 func TestTripRepository_GetByID(t *testing.T) {
 	t.Helper()
 	repo, cleanup := newTestRepository(t)
@@ -49,6 +56,7 @@ func TestTripRepository_GetByID(t *testing.T) {
 	save, err := repo.Save(service.Trip{
 		Pickup:      "Tehran",
 		Destination: "Mashhad",
+		Status:      service.TripStatusRequested,
 	})
 	t.Cleanup(func() {
 		_, err := repo.db.Exec("DELETE FROM trips WHERE id = $1", save.ID)
@@ -68,6 +76,10 @@ func TestTripRepository_GetByID(t *testing.T) {
 	}
 	if id.Destination != "Mashhad" {
 		t.Errorf("Destination was not set %v", id)
+	}
+	if id.Status != service.TripStatusRequested {
+		t.Errorf("expected status %q, got %q",
+			service.TripStatusRequested, id.Status)
 	}
 }
 

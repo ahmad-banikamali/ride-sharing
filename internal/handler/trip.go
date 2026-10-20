@@ -16,6 +16,7 @@ type TripResponse struct {
 	ID          int64  `json:"id"`
 	Pickup      string `json:"pickup"`
 	Destination string `json:"destination"`
+	Status      string `json:"status"`
 }
 
 type TripHandler struct {
@@ -58,6 +59,7 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 		ID:          trip.ID,
 		Pickup:      trip.Pickup,
 		Destination: trip.Destination,
+		Status:      string(trip.Status),
 	}
 
 	if err := json.NewEncoder(w).Encode(res); err != nil {

@@ -5,6 +5,11 @@ type FakeTripRepository struct {
 	nextID int64
 }
 
+func (r *FakeTripRepository) UpdateStatus(id int64, expectedStatus TripStatus, newStatus TripStatus) (Trip, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewFakeTripRepository() *FakeTripRepository {
 	return &FakeTripRepository{
 		trips:  make(map[int64]Trip),
