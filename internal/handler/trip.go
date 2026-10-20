@@ -13,7 +13,7 @@ type CreateTripRequest struct {
 }
 
 type TripResponse struct {
-	ID          int    `json:"id"`
+	ID          int64  `json:"id"`
 	Pickup      string `json:"pickup"`
 	Destination string `json:"destination"`
 }
@@ -33,7 +33,8 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 	}
 	var req CreateTripRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 
@@ -47,9 +48,11 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	res := TripResponse{
 		ID:          trip.ID,
@@ -58,7 +61,8 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(res); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		// در این نقطه ممکن است پاسخ HTTP قبلاً ارسال شده باشد.
+		// بنابراین نمی‌توانیم با اطمینان وضعیت پاسخ را تغییر دهیم.
 		return
 	}
 }
@@ -66,6 +70,11 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 func (h *TripHandler) GetTrip(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
 	}
 	//id := r.URL.Query().Get("id")
 	id := r.PathValue("id") // /trips/12
@@ -95,11 +104,11 @@ func (h *TripHandler) GetTrip(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
 		}
-
+		return
 	}
 
 	res := TripResponse{
-		ID: byId.ID,
+		ID:          byId.ID,
 		Pickup:      byId.Pickup,
 		Destination: byId.Destination,
 	}

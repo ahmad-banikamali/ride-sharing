@@ -25,7 +25,7 @@ func (r *TripRepository) Save(trip service.Trip) (service.Trip, error) {
 	return trip, nil
 }
 
-func (r *TripRepository) GetById(id int) (service.Trip, error) {
+func (r *TripRepository) GetById(id int64) (service.Trip, error) {
 	var trip service.Trip
 	q := "select id, pickup, destination from trips where id = $1"
 	err := r.db.QueryRow(q, id).Scan(&trip.ID, &trip.Pickup, &trip.Destination)

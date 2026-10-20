@@ -20,14 +20,14 @@ type GetTripInput struct {
 }
 
 type Trip struct {
-	ID          int
+	ID          int64
 	Pickup      string
 	Destination string
 }
 
 type TripRepository interface {
 	Save(trip Trip) (Trip, error)
-	GetById(id int) (Trip, error)
+	GetById(id int64) (Trip, error)
 }
 
 type TripService struct {
@@ -61,7 +61,7 @@ func (s *TripService) CreateTrip(input CreateTripInput) (Trip, error) {
 }
 
 func (s *TripService) GetById(input GetTripInput) (Trip, error) {
-	id, err := strconv.Atoi(input.ID)
+	id, err := strconv.ParseInt(input.ID, 10, 64)
 	if err != nil {
 		return Trip{}, ErrInvalidTripID
 	}

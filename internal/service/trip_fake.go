@@ -1,13 +1,13 @@
 package service
 
 type FakeTripRepository struct {
-	trips  map[int]Trip
-	nextID int
+	trips  map[int64]Trip
+	nextID int64
 }
 
 func NewFakeTripRepository() *FakeTripRepository {
 	return &FakeTripRepository{
-		trips:  make(map[int]Trip),
+		trips:  make(map[int64]Trip),
 		nextID: 1,
 	}
 }
@@ -20,7 +20,7 @@ func (r *FakeTripRepository) Save(trip Trip) (Trip, error) {
 	return trip, nil
 }
 
-func (r *FakeTripRepository) GetById(id int) (Trip, error) {
+func (r *FakeTripRepository) GetById(id int64) (Trip, error) {
 	trip, ok := r.trips[id]
 	if !ok {
 		return Trip{}, ErrTripNotFound

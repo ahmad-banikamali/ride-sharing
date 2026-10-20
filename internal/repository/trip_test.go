@@ -35,7 +35,7 @@ func TestTripRepository_Save(t *testing.T) {
 		t.Errorf("ID was not set %v", save.ID)
 	}
 	t.Cleanup(func() {
-		_, err := repo.db.Exec("DELETE FROM trips WHERE id = 1")
+		_, err := repo.db.Exec("DELETE FROM trips WHERE id = $1", save.ID)
 		if err != nil {
 			return
 		}
@@ -46,16 +46,15 @@ func TestTripRepository_GetByID(t *testing.T) {
 	t.Helper()
 	repo, cleanup := newTestRepository(t)
 	t.Cleanup(cleanup)
-	t.Cleanup(func() {
-		_, err := repo.db.Exec("DELETE FROM trips WHERE id = 1")
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	save, err := repo.Save(service.Trip{
 		Pickup:      "Tehran",
 		Destination: "Mashhad",
+	})
+	t.Cleanup(func() {
+		_, err := repo.db.Exec("DELETE FROM trips WHERE id = $1", save.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 	if err != nil {
 		t.Fatal(err)
