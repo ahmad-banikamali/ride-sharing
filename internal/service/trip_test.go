@@ -1,16 +1,22 @@
 package service
 
 import (
+	"errors"
+	"ride-sharing/internal/domain"
+	"strconv"
 	"testing"
 )
 
 func TestTripService_CreateTrip(t *testing.T) {
 	t.Helper()
-	service := NewFakeService()
-	trip, err := service.CreateTrip(CreateTripInput{
-		Pickup:      "A",
-		Destination: "B",
-	})
+	fakeRepo := NewFakeTripRepository()
+	service := NewTripService(fakeRepo)
+	trip, err := service.CreateTrip(
+		t.Context(),
+		CreateTripInput{
+			Pickup:      "A",
+			Destination: "B",
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,16 +24,19 @@ func TestTripService_CreateTrip(t *testing.T) {
 		t.Error("pickup or destination required")
 	}
 
-	if trip.Status != TripStatusRequested {
+	if trip.Status != domain.TripStatusRequested {
 		t.Errorf("expected status %q, got %q",
-			TripStatusRequested, trip.Status)
+			domain.TripStatusRequested, trip.Status)
 	}
 }
 
 func TestTripService_CreateTrip_EmptyData(t *testing.T) {
 	t.Helper()
-	service := NewFakeService()
-	_, err := service.CreateTrip(CreateTripInput{})
+	fakeRepo := NewFakeTripRepository()
+	service := NewTripService(fakeRepo)
+	_, err := service.CreateTrip(
+		t.Context(),
+		CreateTripInput{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -36,68 +45,68 @@ func TestTripService_CreateTrip_EmptyData(t *testing.T) {
 func TestCanTransitionTripStatus(t *testing.T) {
 	tests := []struct {
 		name string
-		from TripStatus
-		to   TripStatus
+		from domain.TripStatus
+		to   domain.TripStatus
 		want bool
 	}{
 		{
 			name: "requested to accepted",
-			from: TripStatusRequested,
-			to:   TripStatusAccepted,
+			from: domain.TripStatusRequested,
+			to:   domain.TripStatusAccepted,
 			want: true,
 		},
 		{
 			name: "requested to cancelled",
-			from: TripStatusRequested,
-			to:   TripStatusCancelled,
+			from: domain.TripStatusRequested,
+			to:   domain.TripStatusCancelled,
 			want: true,
 		},
 		{
 			name: "accepted to in progress",
-			from: TripStatusAccepted,
-			to:   TripStatusInProgress,
+			from: domain.TripStatusAccepted,
+			to:   domain.TripStatusInProgress,
 			want: true,
 		},
 		{
 			name: "accepted to completed is invalid",
-			from: TripStatusAccepted,
-			to:   TripStatusCompleted,
+			from: domain.TripStatusAccepted,
+			to:   domain.TripStatusCompleted,
 			want: false,
 		},
 		{
 			name: "in progress to completed",
-			from: TripStatusInProgress,
-			to:   TripStatusCompleted,
+			from: domain.TripStatusInProgress,
+			to:   domain.TripStatusCompleted,
 			want: true,
 		},
 		{
 			name: "completed to in progress is invalid",
-			from: TripStatusCompleted,
-			to:   TripStatusInProgress,
+			from: domain.TripStatusCompleted,
+			to:   domain.TripStatusInProgress,
 			want: false,
 		},
 		{
 			name: "cancelled to accepted is invalid",
-			from: TripStatusCancelled,
-			to:   TripStatusAccepted,
+			from: domain.TripStatusCancelled,
+			to:   domain.TripStatusAccepted,
 			want: false,
 		},
 		{
 			name: "requested to requested is invalid",
-			from: TripStatusRequested,
-			to:   TripStatusRequested,
+			from: domain.TripStatusRequested,
+			to:   domain.TripStatusRequested,
 			want: false,
 		},
 		{
 			name: "completed to completed is invalid",
-			from: TripStatusCompleted,
-			to:   TripStatusCompleted,
+			from: domain.TripStatusCompleted,
+			to:   domain.TripStatusCompleted,
 			want: false,
 		},
 		{
 			name: "unknown status cannot transition",
-			from: TripStatus("unknown"),
-			to:   TripStatusAccepted,
+			from: domain.TripStatus("unknown"),
+			to:   domain.TripStatusAccepted,
 			want: false,
 		},
 	}
@@ -117,4 +126,35 @@ func TestCanTransitionTripStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTripService_UpdateTripStatus_InvalidTransition(t *testing.T) {
+	repo := NewFakeTripRepository()
+	svc := NewTripService(repo)
+	trip, err := svc.CreateTrip(
+		t.Context(),
+		CreateTripInput{
+			Pickup:      "A",
+			Destination: "B",
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	storedTrip := repo.trips[trip.ID]
+	storedTrip.Status = domain.TripStatusCompleted
+	repo.trips[trip.ID] = storedTrip
+
+	input := UpdateTripStatusInput{
+		ID:     strconv.FormatInt(trip.ID, 10),
+		Status: string(domain.TripStatusInProgress),
+	}
+
+	_, err = svc.UpdateTripStatus(
+		t.Context(),
+		input)
+
+	if !errors.Is(err, domain.ErrInvalidTripTransition) {
+		t.Error("expected error")
+	}
+
 }

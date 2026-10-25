@@ -27,3 +27,28 @@ Content-Type: application/json
 {
   "pickup":
 }
+
+
+### Accept a trip
+PATCH http://localhost:8080/trips/1/status
+Content-Type: application/json
+
+{
+  "status": "accepted"
+}
+
+### Illegal transition: requested -> completed => 409
+PATCH http://localhost:8080/trips/1/status
+Content-Type: application/json
+
+{
+  "status": "completed"
+}
+
+### Unknown status value => 422
+PATCH http://localhost:8080/trips/1/status
+Content-Type: application/json
+
+{
+  "status": "flying"
+}

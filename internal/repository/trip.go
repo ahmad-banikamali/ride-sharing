@@ -1,9 +1,10 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"ride-sharing/internal/service"
+	"ride-sharing/internal/domain"
 )
 
 type TripRepository struct {
@@ -11,10 +12,11 @@ type TripRepository struct {
 }
 
 func (r *TripRepository) UpdateStatus(
+	ctx context.Context,
 	id int64,
-	expectedStatus service.TripStatus,
-	newStatus service.TripStatus,
-) (service.Trip, error) {
+	expectedStatus domain.TripStatus,
+	newStatus domain.TripStatus,
+) (domain.Trip, error) {
 	query := `
 		UPDATE trips
 		SET status = $1
@@ -22,9 +24,10 @@ func (r *TripRepository) UpdateStatus(
 		RETURNING id, pickup, destination, status
 	`
 
-	var trip service.Trip
+	var trip domain.Trip
 
-	err := r.db.QueryRow(
+	err := r.db.QueryRowContext(
+		ctx,
 		query,
 		newStatus,
 		id,
@@ -41,18 +44,18 @@ func (r *TripRepository) UpdateStatus(
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
-		return service.Trip{}, err
+		return domain.Trip{}, err
 	}
 
-	_, getErr := r.GetById(id)
-	if errors.Is(getErr, service.ErrTripNotFound) {
-		return service.Trip{}, service.ErrTripNotFound
+	_, getErr := r.GetById(ctx, id)
+	if errors.Is(getErr, domain.ErrTripNotFound) {
+		return domain.Trip{}, domain.ErrTripNotFound
 	}
 	if getErr != nil {
-		return service.Trip{}, getErr
+		return domain.Trip{}, getErr
 	}
 
-	return service.Trip{}, service.ErrTripStatusConflict
+	return domain.Trip{}, domain.ErrTripStatusConflict
 }
 
 func NewTripRepository(db *sql.DB) *TripRepository {
@@ -61,25 +64,24 @@ func NewTripRepository(db *sql.DB) *TripRepository {
 	}
 }
 
-func (r *TripRepository) Save(trip service.Trip) (service.Trip, error) {
+func (r *TripRepository) Save(ctx context.Context, trip domain.Trip) (domain.Trip, error) {
 	q := "INSERT INTO trips (pickup, destination, status) VALUES ($1, $2, $3) RETURNING id"
-	err := r.db.QueryRow(q, trip.Pickup, trip.Destination, trip.Status).Scan(&trip.ID)
+	err := r.db.QueryRowContext(ctx, q, trip.Pickup, trip.Destination, trip.Status).Scan(&trip.ID)
 	if err != nil {
-		return service.Trip{}, err
+		return domain.Trip{}, err
 	}
 	return trip, nil
 }
 
-func (r *TripRepository) GetById(id int64) (service.Trip, error) {
-	var trip service.Trip
+func (r *TripRepository) GetById(ctx context.Context, id int64) (domain.Trip, error) {
+	var trip domain.Trip
 	q := "select id, pickup, destination, status from trips where id = $1"
-	err := r.db.QueryRow(q, id).Scan(&trip.ID, &trip.Pickup, &trip.Destination, &trip.Status)
+	err := r.db.QueryRowContext(ctx, q, id).Scan(&trip.ID, &trip.Pickup, &trip.Destination, &trip.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return service.Trip{}, service.ErrTripNotFound
+			return domain.Trip{}, domain.ErrTripNotFound
 		}
-		return service.Trip{}, err
+		return domain.Trip{}, err
 	}
 	return trip, nil
-
 }

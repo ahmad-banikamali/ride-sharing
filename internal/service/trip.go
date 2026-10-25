@@ -1,18 +1,13 @@
 package service
 
 import (
-	"errors"
+	"context"
+	"fmt"
+	"ride-sharing/internal/domain"
 	"strconv"
 	"strings"
+	"time"
 )
-
-var ErrInvalidTripInput = errors.New("pickup or destination required")
-var ErrTripNotFound = errors.New("trip not found")
-var ErrInvalidTripID = errors.New("invalid trip ID")
-
-var ErrInvalidTripStatus = errors.New("invalid trip status")
-var ErrInvalidTripTransition = errors.New("invalid trip status transition")
-var ErrTripStatusConflict = errors.New("trip status changed concurrently")
 
 type CreateTripInput struct {
 	Pickup      string
@@ -28,59 +23,30 @@ type UpdateTripStatusInput struct {
 	Status string
 }
 
-type TripStatus string
+const dbTimeout = 5 * time.Second
 
-const (
-	TripStatusRequested  TripStatus = "requested"
-	TripStatusAccepted   TripStatus = "accepted"
-	TripStatusInProgress TripStatus = "in_progress"
-	TripStatusCompleted  TripStatus = "completed"
-	TripStatusCancelled  TripStatus = "cancelled"
-)
-
-func isValidTripStatus(status TripStatus) bool {
-	switch status {
-	case
-		TripStatusRequested,
-		TripStatusAccepted,
-		TripStatusInProgress,
-		TripStatusCompleted,
-		TripStatusCancelled:
-		return true
-	default:
-		return false
-	}
-}
-
-var validTripStatusTransitions = map[TripStatus][]TripStatus{
-	TripStatusRequested: {
-		TripStatusAccepted,
-		TripStatusCancelled,
+var validTripStatusTransitions = map[domain.TripStatus][]domain.TripStatus{
+	domain.TripStatusRequested: {
+		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	},
-	TripStatusAccepted: {
-		TripStatusInProgress,
-		TripStatusCancelled,
+	domain.TripStatusAccepted: {
+		domain.TripStatusInProgress,
+		domain.TripStatusCancelled,
 	},
-	TripStatusInProgress: {
-		TripStatusCompleted,
+	domain.TripStatusInProgress: {
+		domain.TripStatusCompleted,
 	},
-}
-
-type Trip struct {
-	ID          int64
-	Pickup      string
-	Destination string
-	Status      TripStatus
 }
 
 type TripRepository interface {
-	Save(trip Trip) (Trip, error)
-	GetById(id int64) (Trip, error)
-	UpdateStatus(
+	Save(ctx context.Context, trip domain.Trip) (domain.Trip, error)
+	GetById(ctx context.Context, id int64) (domain.Trip, error)
+	UpdateStatus(ctx context.Context,
 		id int64,
-		expectedStatus TripStatus,
-		newStatus TripStatus,
-	) (Trip, error)
+		expectedStatus domain.TripStatus,
+		newStatus domain.TripStatus,
+	) (domain.Trip, error)
 }
 
 type TripService struct {
@@ -93,62 +59,89 @@ func NewTripService(repository TripRepository) *TripService {
 	}
 }
 
-func (s *TripService) CreateTrip(input CreateTripInput) (Trip, error) {
+func (s *TripService) CreateTrip(ctx context.Context, input CreateTripInput) (domain.Trip, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
 	//validate input
 	input.Pickup = strings.TrimSpace(input.Pickup)
 	input.Destination = strings.TrimSpace(input.Destination)
 
 	if input.Pickup == "" || input.Destination == "" {
-		return Trip{}, ErrInvalidTripInput
+		return domain.Trip{}, domain.ErrInvalidTripInput
 	}
-
-	trip, err := s.tripRepository.Save(Trip{
+	trip, err := s.tripRepository.Save(ctx, domain.Trip{
 		Pickup:      input.Pickup,
 		Destination: input.Destination,
-		Status:      TripStatusRequested,
+		Status:      domain.TripStatusRequested,
 	})
 	if err != nil {
-		return Trip{}, err
+		return domain.Trip{}, fmt.Errorf("save trip: %w", err)
 	}
 
 	return trip, nil
 }
 
-func (s *TripService) GetById(input GetTripInput) (Trip, error) {
+func (s *TripService) GetById(ctx context.Context, input GetTripInput) (domain.Trip, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
 	id, err := strconv.ParseInt(input.ID, 10, 64)
 	if err != nil {
-		return Trip{}, ErrInvalidTripID
+		return domain.Trip{}, domain.ErrInvalidTripID
 	}
-	trip, err := s.tripRepository.GetById(id)
+	trip, err := s.tripRepository.GetById(ctx, id)
 	if err != nil {
-		return Trip{}, err
+		return domain.Trip{}, err
 	}
 	return trip, nil
 }
 
-func (s *TripService) UpdateStatus(input UpdateTripStatusInput) (Trip, error) {
+func (s *TripService) UpdateTripStatus(ctx context.Context, input UpdateTripStatusInput) (domain.Trip, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
 	id, err := strconv.ParseInt(input.ID, 10, 64)
 	if err != nil {
-		return Trip{}, ErrInvalidTripID
+		return domain.Trip{}, domain.ErrInvalidTripID
 	}
-	newStatus := TripStatus(input.Status)
+
+	newStatus := domain.TripStatus(input.Status)
 	if !isValidTripStatus(newStatus) {
-		return Trip{}, ErrInvalidTripStatus
+		return domain.Trip{}, domain.ErrInvalidTripStatus
 	}
-	trip, err := s.tripRepository.GetById(id)
-	if err != nil {
-		return Trip{}, ErrTripNotFound
-	}
-	currentStatus := trip.Status
 
-	canTransit := canTransitionTripStatus(currentStatus, newStatus)
-	if canTransit {
-		trip.Status = newStatus
+	current, err := s.tripRepository.GetById(ctx, id)
+	if err != nil {
+		return domain.Trip{}, fmt.Errorf("get trip %d: %w", id, err)
 	}
-	return s.tripRepository.UpdateStatus(id, currentStatus, newStatus)
+
+	if !canTransitionTripStatus(current.Status, newStatus) {
+		return domain.Trip{}, domain.ErrInvalidTripTransition
+	}
+
+	// The conditional UPDATE re-checks the status, so a change that happens
+	// between the read above and this write cannot slip through.
+	trip, err := s.tripRepository.UpdateStatus(ctx, id, current.Status, newStatus)
+	if err != nil {
+		return domain.Trip{}, fmt.Errorf("update trip %d status: %w", id, err)
+	}
+
+	return trip, nil
 }
 
-func canTransitionTripStatus(from, to TripStatus) bool {
+func isValidTripStatus(status domain.TripStatus) bool {
+	switch status {
+	case
+		domain.TripStatusRequested,
+		domain.TripStatusAccepted,
+		domain.TripStatusInProgress,
+		domain.TripStatusCompleted,
+		domain.TripStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+func canTransitionTripStatus(from, to domain.TripStatus) bool {
 
 	for _, validTo := range validTripStatusTransitions[from] {
 		if to == validTo {

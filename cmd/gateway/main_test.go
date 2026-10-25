@@ -12,8 +12,10 @@ import (
 )
 
 func TestTripHTTPFlow(t *testing.T) {
-	ts := service.NewFakeService()
-	th := handler.NewTripHandler(ts)
+	fakeRepo := service.NewFakeTripRepository()
+	svc := service.NewTripService(fakeRepo)
+
+	th := handler.NewTripHandler(svc)
 
 	router := newRouter(th)
 
@@ -81,5 +83,87 @@ func TestTripHTTPFlow(t *testing.T) {
 		retrieved.Pickup != "Berlin" ||
 		retrieved.Destination != "Hamburg" {
 		t.Fatalf("unexpected retrieved trip: %+v", retrieved)
+	}
+}
+
+func TestTripStatusHTTPFlow(t *testing.T) {
+	fakeRepo := service.NewFakeTripRepository()
+	svc := service.NewTripService(fakeRepo)
+	router := newRouter(handler.NewTripHandler(svc))
+
+	createRec := httptest.NewRecorder()
+	router.ServeHTTP(createRec, httptest.NewRequest(
+		http.MethodPost,
+		"/trips",
+		strings.NewReader(`{"pickup":"Berlin","destination":"Hamburg"}`),
+	))
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("create: expected %d, got %d: %s", http.StatusCreated, createRec.Code, createRec.Body.String())
+	}
+
+	var created struct {
+		ID int64 `json:"id"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("invalid create response JSON: %v", err)
+	}
+
+	patchRec := httptest.NewRecorder()
+	router.ServeHTTP(patchRec, httptest.NewRequest(
+		http.MethodPatch,
+		fmt.Sprintf("/trips/%d/status", created.ID),
+		strings.NewReader(`{"status":"accepted"}`),
+	))
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("patch: expected %d, got %d: %s", http.StatusOK, patchRec.Code, patchRec.Body.String())
+	}
+
+	getRec := httptest.NewRecorder()
+	router.ServeHTTP(getRec, httptest.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("/trips/%d", created.ID),
+		nil,
+	))
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("get: expected %d, got %d: %s", http.StatusOK, getRec.Code, getRec.Body.String())
+	}
+
+	var retrieved struct {
+		ID     int64  `json:"id"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(getRec.Body.Bytes(), &retrieved); err != nil {
+		t.Fatalf("invalid get response JSON: %v", err)
+	}
+
+	if retrieved.Status != "accepted" {
+		t.Fatalf("expected status %q, got %q", "accepted", retrieved.Status)
+	}
+}
+
+func TestRouterMethodNotAllowed(t *testing.T) {
+	fakeRepo := service.NewFakeTripRepository()
+	svc := service.NewTripService(fakeRepo)
+	router := newRouter(handler.NewTripHandler(svc))
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "GET on create endpoint", method: http.MethodGet, path: "/trips"},
+		{name: "POST on get endpoint", method: http.MethodPost, path: "/trips/1"},
+		{name: "PUT on status endpoint", method: http.MethodPut, path: "/trips/1/status"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(tt.method, tt.path, strings.NewReader(`{}`)))
+
+			if rec.Code != http.StatusMethodNotAllowed {
+				t.Errorf("expected %d, got %d", http.StatusMethodNotAllowed, rec.Code)
+			}
+		})
 	}
 }
