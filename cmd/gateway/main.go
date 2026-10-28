@@ -26,6 +26,7 @@ func newRouter(th *handler.TripHandler) *http.ServeMux {
 	mux.HandleFunc("POST /trips", th.CreateTrip)
 	mux.HandleFunc("GET /trips/{id}", th.GetTrip)
 	mux.HandleFunc("PATCH /trips/{id}/status", th.UpdateTripStatus)
+	mux.HandleFunc("POST /trips/{id}", th.AssignDriver)
 
 	return mux
 }

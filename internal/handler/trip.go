@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"ride-sharing/internal/domain"
 	"ride-sharing/internal/service"
+	"strconv"
 )
 
 type CreateTripRequest struct {
@@ -16,6 +17,10 @@ type CreateTripRequest struct {
 
 type UpdateTripStatusRequest struct {
 	Status string `json:"status"`
+}
+
+type AssignDriverRequest struct {
+	DriverID string `json:"driver_id"`
 }
 
 type TripResponse struct {
@@ -91,6 +96,29 @@ func (h *TripHandler) UpdateTripStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, toTripResponse(trip))
+}
+
+func (h *TripHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
+	tripId := r.PathValue("id")
+	var input AssignDriverRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+	}
+	driverId, err := strconv.ParseInt(input.DriverID, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid driver ID")
+	}
+
+	driver, err := h.service.AssignDriver(r.Context(), service.AssignDriverInput{
+		TripID:   tripId,
+		DriverID: driverId,
+	})
+
+	if err != nil {
+		writeServiceError(w, "assign driver", err)
+	}
+
+	writeJSON(w, http.StatusOK, toTripResponse(driver))
 }
 
 func toTripResponse(trip domain.Trip) TripResponse {

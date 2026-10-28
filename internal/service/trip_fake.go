@@ -10,6 +10,15 @@ type FakeTripRepository struct {
 	nextID int64
 }
 
+func (r *FakeTripRepository) AssignDriver(
+	ctx context.Context,
+	tripID int64,
+	driverID int64,
+) (domain.Trip, error) {
+
+	return r.trips[tripID], nil
+}
+
 func (r *FakeTripRepository) UpdateStatus(
 	ctx context.Context,
 	id int64, expectedStatus domain.TripStatus, newStatus domain.TripStatus) (domain.Trip, error) {

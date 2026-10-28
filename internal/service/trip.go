@@ -23,11 +23,16 @@ type UpdateTripStatusInput struct {
 	Status string
 }
 
+type AssignDriverInput struct {
+	TripID   string
+	DriverID int64
+}
+
 const dbTimeout = 5 * time.Second
 
 var validTripStatusTransitions = map[domain.TripStatus][]domain.TripStatus{
 	domain.TripStatusRequested: {
-		domain.TripStatusAccepted,
+		//domain.TripStatusAccepted, // only assign method can change requested status to accepted status
 		domain.TripStatusCancelled,
 	},
 	domain.TripStatusAccepted: {
@@ -46,6 +51,12 @@ type TripRepository interface {
 		id int64,
 		expectedStatus domain.TripStatus,
 		newStatus domain.TripStatus,
+	) (domain.Trip, error)
+
+	AssignDriver(
+		ctx context.Context,
+		tripID int64,
+		driverID int64,
 	) (domain.Trip, error)
 }
 
@@ -125,6 +136,20 @@ func (s *TripService) UpdateTripStatus(ctx context.Context, input UpdateTripStat
 	}
 
 	return trip, nil
+}
+
+func (s *TripService) AssignDriver(ctx context.Context, input AssignDriverInput) (domain.Trip, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+	id, err := strconv.ParseInt(input.TripID, 10, 64)
+	if err != nil {
+		return domain.Trip{}, domain.ErrInvalidTripID
+	}
+	driver, err := s.tripRepository.AssignDriver(ctx, id, input.DriverID)
+	if err != nil {
+		return domain.Trip{}, fmt.Errorf("assign driver %d: %w", id, err)
+	}
+	return driver, nil
 }
 
 func isValidTripStatus(status domain.TripStatus) bool {

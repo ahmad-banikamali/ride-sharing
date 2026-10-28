@@ -16,6 +16,9 @@ var ErrInvalidTripStatus = errors.New("invalid trip status")
 var ErrInvalidTripTransition = errors.New("invalid trip status transition")
 var ErrTripStatusConflict = errors.New("trip status changed concurrently")
 
+var ErrDriverNotFound = errors.New("driver not found")
+var ErrDriverUnavailable = errors.New("driver unavailable")
+
 const (
 	TripStatusRequested  TripStatus = "requested"
 	TripStatusAccepted   TripStatus = "accepted"
@@ -29,4 +32,5 @@ type Trip struct {
 	Pickup      string
 	Destination string
 	Status      TripStatus
+	DriverID    *int64
 }

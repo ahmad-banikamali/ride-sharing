@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"ride-sharing/internal/domain"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type TripRepository struct {
@@ -56,6 +58,74 @@ func (r *TripRepository) UpdateStatus(
 	}
 
 	return domain.Trip{}, domain.ErrTripStatusConflict
+}
+
+func (r *TripRepository) AssignDriver(
+	ctx context.Context,
+	tripID int64,
+	driverID int64,
+) (domain.Trip, error) {
+	query := `
+        UPDATE trips
+        SET driver_id = $1,
+            status = 'accepted'
+        WHERE id = $2
+          AND status = 'requested'
+          AND driver_id IS NULL
+        RETURNING id, pickup, destination, status, driver_id
+    `
+
+	var trip domain.Trip
+	var assignedDriverID sql.NullInt64
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		driverID,
+		tripID,
+	).Scan(
+		&trip.ID,
+		&trip.Pickup,
+		&trip.Destination,
+		&trip.Status,
+		&assignedDriverID,
+	)
+
+	if err == nil {
+		if !assignedDriverID.Valid {
+			return domain.Trip{}, domain.ErrUnknown
+		}
+
+		trip.DriverID = &assignedDriverID.Int64
+		return trip, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		_, getErr := r.GetById(ctx, tripID)
+
+		if errors.Is(getErr, domain.ErrTripNotFound) {
+			return domain.Trip{}, domain.ErrTripNotFound
+		}
+		if getErr != nil {
+			return domain.Trip{}, getErr
+		}
+
+		return domain.Trip{}, domain.ErrTripStatusConflict
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch {
+		case pgErr.Code == "23503" &&
+			pgErr.ConstraintName == "trips_driver_id_fkey":
+			return domain.Trip{}, domain.ErrDriverNotFound
+
+		case pgErr.Code == "23505" &&
+			pgErr.ConstraintName == "unique_active_trip_per_driver":
+			return domain.Trip{}, domain.ErrDriverUnavailable
+		}
+	}
+
+	return domain.Trip{}, err
 }
 
 func NewTripRepository(db *sql.DB) *TripRepository {
