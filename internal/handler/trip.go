@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"ride-sharing/internal/domain"
-	"ride-sharing/internal/service"
+	"ride-sharing/internal/service/trip"
 	"strconv"
 )
 
@@ -35,10 +35,10 @@ type errorResponse struct {
 }
 
 type TripHandler struct {
-	service *service.TripService
+	service *trip.TripService
 }
 
-func NewTripHandler(service *service.TripService) *TripHandler {
+func NewTripHandler(service *trip.TripService) *TripHandler {
 	return &TripHandler{service: service}
 }
 
@@ -51,7 +51,7 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 
 	trip, err := h.service.CreateTrip(
 		r.Context(),
-		service.CreateTripInput{
+		trip.CreateTripInput{
 			Pickup:      req.Pickup,
 			Destination: req.Destination,
 		})
@@ -66,7 +66,7 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 func (h *TripHandler) GetTrip(w http.ResponseWriter, r *http.Request) {
 	trip, err := h.service.GetById(
 		r.Context(),
-		service.GetTripInput{
+		trip.GetTripInput{
 			ID: r.PathValue("id"),
 		})
 	if err != nil {
@@ -86,7 +86,7 @@ func (h *TripHandler) UpdateTripStatus(w http.ResponseWriter, r *http.Request) {
 
 	trip, err := h.service.UpdateTripStatus(
 		r.Context(),
-		service.UpdateTripStatusInput{
+		trip.UpdateTripStatusInput{
 			ID:     r.PathValue("id"),
 			Status: req.Status,
 		})
@@ -109,7 +109,7 @@ func (h *TripHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid driver ID")
 	}
 
-	driver, err := h.service.AssignDriver(r.Context(), service.AssignDriverInput{
+	driver, err := h.service.AssignDriver(r.Context(), trip.AssignDriverInput{
 		TripID:   tripId,
 		DriverID: driverId,
 	})

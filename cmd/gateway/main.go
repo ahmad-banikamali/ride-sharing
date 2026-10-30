@@ -10,7 +10,7 @@ import (
 	"ride-sharing/internal/database"
 	"ride-sharing/internal/handler"
 	"ride-sharing/internal/repository"
-	"ride-sharing/internal/service"
+	"ride-sharing/internal/service/trip"
 	"time"
 )
 
@@ -53,7 +53,7 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	re := repository.NewTripRepository(db)
-	ts := service.NewTripService(re)
+	ts := trip.NewTripService(re)
 	th := handler.NewTripHandler(ts)
 
 	mux := newRouter(th)

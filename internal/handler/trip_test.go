@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"ride-sharing/internal/domain"
 	"ride-sharing/internal/service"
+	"ride-sharing/internal/service/trip"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 
 func newTestHandler() *TripHandler {
 	fakeRepo := service.NewFakeTripRepository()
-	svc := service.NewTripService(fakeRepo)
+	svc := trip.NewTripService(fakeRepo)
 	return NewTripHandler(svc)
 }
 
@@ -297,7 +298,7 @@ func (conflictRepo) AssignDriver(
 }
 
 func TestTripHandler_UpdateTripStatus_Conflict(t *testing.T) {
-	h := NewTripHandler(service.NewTripService(conflictRepo{}))
+	h := NewTripHandler(trip.NewTripService(conflictRepo{}))
 
 	rec := patchStatus(t, h, "1", `{"status":"cancelled"}`)
 

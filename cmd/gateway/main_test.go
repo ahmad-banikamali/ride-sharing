@@ -7,13 +7,14 @@ import (
 	"net/http/httptest"
 	"ride-sharing/internal/handler"
 	"ride-sharing/internal/service"
+	"ride-sharing/internal/service/trip"
 	"strings"
 	"testing"
 )
 
 func TestTripHTTPFlow(t *testing.T) {
 	fakeRepo := service.NewFakeTripRepository()
-	svc := service.NewTripService(fakeRepo)
+	svc := trip.NewTripService(fakeRepo)
 
 	th := handler.NewTripHandler(svc)
 
@@ -88,7 +89,7 @@ func TestTripHTTPFlow(t *testing.T) {
 
 func TestTripStatusHTTPFlow(t *testing.T) {
 	fakeRepo := service.NewFakeTripRepository()
-	svc := service.NewTripService(fakeRepo)
+	svc := trip.NewTripService(fakeRepo)
 	router := newRouter(handler.NewTripHandler(svc))
 
 	createRec := httptest.NewRecorder()
@@ -143,7 +144,7 @@ func TestTripStatusHTTPFlow(t *testing.T) {
 
 func TestRouterMethodNotAllowed(t *testing.T) {
 	fakeRepo := service.NewFakeTripRepository()
-	svc := service.NewTripService(fakeRepo)
+	svc := trip.NewTripService(fakeRepo)
 	router := newRouter(handler.NewTripHandler(svc))
 
 	tests := []struct {

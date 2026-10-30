@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"ride-sharing/internal/domain"
+	tripService "ride-sharing/internal/service/trip"
 	"strconv"
 	"testing"
 )
@@ -10,10 +11,10 @@ import (
 func TestTripService_CreateTrip(t *testing.T) {
 	t.Helper()
 	fakeRepo := NewFakeTripRepository()
-	service := NewTripService(fakeRepo)
+	service := tripService.NewTripService(fakeRepo)
 	trip, err := service.CreateTrip(
 		t.Context(),
-		CreateTripInput{
+		tripService.CreateTripInput{
 			Pickup:      "A",
 			Destination: "B",
 		})
@@ -33,10 +34,10 @@ func TestTripService_CreateTrip(t *testing.T) {
 func TestTripService_CreateTrip_EmptyData(t *testing.T) {
 	t.Helper()
 	fakeRepo := NewFakeTripRepository()
-	service := NewTripService(fakeRepo)
+	service := tripService.NewTripService(fakeRepo)
 	_, err := service.CreateTrip(
 		t.Context(),
-		CreateTripInput{})
+		tripService.CreateTripInput{})
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -107,7 +108,7 @@ func TestCanTransitionTripStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := canTransitionTripStatus(tt.from, tt.to)
+			got := tripService.CanTransitionTripStatus(tt.from, tt.to)
 
 			if got != tt.want {
 				t.Errorf(
@@ -124,10 +125,10 @@ func TestCanTransitionTripStatus(t *testing.T) {
 
 func TestTripService_UpdateTripStatus_InvalidTransition(t *testing.T) {
 	repo := NewFakeTripRepository()
-	svc := NewTripService(repo)
+	svc := tripService.NewTripService(repo)
 	trip, err := svc.CreateTrip(
 		t.Context(),
-		CreateTripInput{
+		tripService.CreateTripInput{
 			Pickup:      "A",
 			Destination: "B",
 		})
@@ -138,7 +139,7 @@ func TestTripService_UpdateTripStatus_InvalidTransition(t *testing.T) {
 	storedTrip.Status = domain.TripStatusCompleted
 	repo.trips[trip.ID] = storedTrip
 
-	input := UpdateTripStatusInput{
+	input := tripService.UpdateTripStatusInput{
 		ID:     strconv.FormatInt(trip.ID, 10),
 		Status: string(domain.TripStatusInProgress),
 	}

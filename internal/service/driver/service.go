@@ -14,7 +14,7 @@ type Repository interface {
 }
 
 type Validator interface {
-	Validate(i *CreateInput) error
+	Validate(name string) error
 }
 
 type CreateInput struct {
@@ -31,14 +31,17 @@ type Service struct {
 	validator  Validator
 }
 
-func NewService(validator Validator) *Service {
+func NewService(
+	repository Repository,
+	validator Validator) *Service {
 	return &Service{
-		validator: validator,
+		repository: repository,
+		validator:  validator,
 	}
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, error) {
-	err := s.validator.Validate(&input)
+	err := s.validator.Validate(input.Name)
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 	if err != nil {

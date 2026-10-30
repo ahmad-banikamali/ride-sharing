@@ -1,4 +1,4 @@
-package service
+package trip
 
 import (
 	"context"
@@ -124,7 +124,7 @@ func (s *TripService) UpdateTripStatus(ctx context.Context, input UpdateTripStat
 		return domain.Trip{}, fmt.Errorf("get trip %d: %w", id, err)
 	}
 
-	if !canTransitionTripStatus(current.Status, newStatus) {
+	if !CanTransitionTripStatus(current.Status, newStatus) {
 		return domain.Trip{}, domain.ErrInvalidTripTransition
 	}
 
@@ -166,7 +166,7 @@ func isValidTripStatus(status domain.TripStatus) bool {
 	}
 }
 
-func canTransitionTripStatus(from, to domain.TripStatus) bool {
+func CanTransitionTripStatus(from, to domain.TripStatus) bool {
 
 	for _, validTo := range validTripStatusTransitions[from] {
 		if to == validTo {
