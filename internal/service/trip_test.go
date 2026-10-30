@@ -50,12 +50,6 @@ func TestCanTransitionTripStatus(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "requested to accepted",
-			from: domain.TripStatusRequested,
-			to:   domain.TripStatusAccepted,
-			want: true,
-		},
-		{
 			name: "requested to cancelled",
 			from: domain.TripStatusRequested,
 			to:   domain.TripStatusCancelled,

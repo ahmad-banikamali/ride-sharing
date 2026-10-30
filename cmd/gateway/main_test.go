@@ -112,7 +112,7 @@ func TestTripStatusHTTPFlow(t *testing.T) {
 	router.ServeHTTP(patchRec, httptest.NewRequest(
 		http.MethodPatch,
 		fmt.Sprintf("/trips/%d/status", created.ID),
-		strings.NewReader(`{"status":"accepted"}`),
+		strings.NewReader(`{"status":"cancelled"}`),
 	))
 	if patchRec.Code != http.StatusOK {
 		t.Fatalf("patch: expected %d, got %d: %s", http.StatusOK, patchRec.Code, patchRec.Body.String())
@@ -136,8 +136,8 @@ func TestTripStatusHTTPFlow(t *testing.T) {
 		t.Fatalf("invalid get response JSON: %v", err)
 	}
 
-	if retrieved.Status != "accepted" {
-		t.Fatalf("expected status %q, got %q", "accepted", retrieved.Status)
+	if retrieved.Status != "cancelled" {
+		t.Fatalf("expected status %q, got %q", "cancelled", retrieved.Status)
 	}
 }
 
@@ -152,8 +152,8 @@ func TestRouterMethodNotAllowed(t *testing.T) {
 		path   string
 	}{
 		{name: "GET on create endpoint", method: http.MethodGet, path: "/trips"},
-		{name: "POST on get endpoint", method: http.MethodPost, path: "/trips/1"},
 		{name: "PUT on status endpoint", method: http.MethodPut, path: "/trips/1/status"},
+		{name: "DELETE on get endpoint", method: http.MethodDelete, path: "/trips/1"},
 	}
 
 	for _, tt := range tests {

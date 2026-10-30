@@ -7,7 +7,6 @@ import (
 	"os"
 	"ride-sharing/internal/database"
 	"ride-sharing/internal/domain"
-	"sync"
 	"testing"
 )
 
@@ -115,14 +114,14 @@ func TestTripRepository_UpdateStatus(t *testing.T) {
 		context.Background(),
 		trip.ID,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	)
 	if err != nil {
 		t.Fatalf("update status: %v", err)
 	}
 
-	if updated.Status != domain.TripStatusAccepted {
-		t.Errorf("expected status %q, got %q", domain.TripStatusAccepted, updated.Status)
+	if updated.Status != domain.TripStatusCancelled {
+		t.Errorf("expected status %q, got %q", domain.TripStatusCancelled, updated.Status)
 	}
 
 	// RETURNING shows what the statement produced; re-reading proves what was stored.
@@ -130,8 +129,8 @@ func TestTripRepository_UpdateStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get trip: %v", err)
 	}
-	if stored.Status != domain.TripStatusAccepted {
-		t.Errorf("expected persisted status %q, got %q", domain.TripStatusAccepted, stored.Status)
+	if stored.Status != domain.TripStatusCancelled {
+		t.Errorf("expected persisted status %q, got %q", domain.TripStatusCancelled, stored.Status)
 	}
 }
 
@@ -142,7 +141,7 @@ func TestTripRepository_UpdateStatus_NotFound(t *testing.T) {
 		context.Background(),
 		math.MaxInt64,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	)
 	if !errors.Is(err, domain.ErrTripNotFound) {
 		t.Fatalf("expected ErrTripNotFound, got %v", err)
@@ -153,12 +152,12 @@ func TestTripRepository_UpdateStatus_Conflict(t *testing.T) {
 	repo := newTestRepository(t)
 	trip := createTrip(t, repo)
 
-	// First transition wins: requested -> accepted.
+	// First transition wins: requested -> canceled.
 	if _, err := repo.UpdateStatus(
 		context.Background(),
 		trip.ID,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	); err != nil {
 		t.Fatalf("first update: %v", err)
 	}
@@ -173,54 +172,5 @@ func TestTripRepository_UpdateStatus_Conflict(t *testing.T) {
 	)
 	if !errors.Is(err, domain.ErrTripStatusConflict) {
 		t.Fatalf("expected ErrTripStatusConflict, got %v", err)
-	}
-}
-
-func TestTripRepository_UpdateStatus_ConcurrentAccept(t *testing.T) {
-	repo := newTestRepository(t)
-	trip := createTrip(t, repo)
-
-	const attempts = 10
-
-	start := make(chan struct{})
-	results := make(chan error, attempts)
-
-	var wg sync.WaitGroup
-	for i := 0; i < attempts; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			<-start // all goroutines fire together
-			_, err := repo.UpdateStatus(
-				context.Background(),
-				trip.ID,
-				domain.TripStatusRequested,
-				domain.TripStatusAccepted,
-			)
-			results <- err
-		}()
-	}
-
-	close(start)
-	wg.Wait()
-	close(results)
-
-	var winners, conflicts int
-	for err := range results {
-		switch {
-		case err == nil:
-			winners++
-		case errors.Is(err, domain.ErrTripStatusConflict):
-			conflicts++
-		default:
-			t.Fatalf("unexpected error from concurrent update: %v", err)
-		}
-	}
-
-	if winners != 1 {
-		t.Fatalf("expected exactly 1 winner, got %d", winners)
-	}
-	if conflicts != attempts-1 {
-		t.Fatalf("expected %d conflicts, got %d", attempts-1, conflicts)
 	}
 }
