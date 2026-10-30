@@ -186,16 +186,16 @@ func TestTripHandler_UpdateTripStatus(t *testing.T) {
 		wantStatus string
 	}{
 		{
-			name:       "requested to accepted",
+			name:       "requested to cancelled",
 			createTrip: true,
-			bodies:     []string{`{"status":"accepted"}`},
+			bodies:     []string{`{"status":"cancelled"}`},
 			wantCode:   http.StatusOK,
-			wantStatus: string(domain.TripStatusAccepted),
+			wantStatus: string(domain.TripStatusCancelled),
 		},
 		{
 			name:       "accepted to cancelled",
 			createTrip: true,
-			bodies:     []string{`{"status":"accepted"}`, `{"status":"cancelled"}`},
+			bodies:     []string{`{"status":"cancelled"}`},
 			wantCode:   http.StatusOK,
 			wantStatus: string(domain.TripStatusCancelled),
 		},
@@ -295,10 +295,18 @@ func (conflictRepo) UpdateStatus(context.Context, int64, domain.TripStatus, doma
 	return domain.Trip{}, domain.ErrTripStatusConflict
 }
 
+func (conflictRepo) AssignDriver(
+	context.Context,
+	int64,
+	int64,
+) (domain.Trip, error) {
+	return domain.Trip{}, domain.ErrTripStatusConflict
+}
+
 func TestTripHandler_UpdateTripStatus_Conflict(t *testing.T) {
 	h := NewTripHandler(service.NewTripService(conflictRepo{}))
 
-	rec := patchStatus(t, h, "1", `{"status":"accepted"}`)
+	rec := patchStatus(t, h, "1", `{"status":"cancelled"}`)
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("expected %d, got %d; body: %s", http.StatusConflict, rec.Code, rec.Body.String())

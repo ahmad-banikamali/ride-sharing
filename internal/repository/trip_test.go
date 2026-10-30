@@ -115,14 +115,14 @@ func TestTripRepository_UpdateStatus(t *testing.T) {
 		context.Background(),
 		trip.ID,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	)
 	if err != nil {
 		t.Fatalf("update status: %v", err)
 	}
 
-	if updated.Status != domain.TripStatusAccepted {
-		t.Errorf("expected status %q, got %q", domain.TripStatusAccepted, updated.Status)
+	if updated.Status != domain.TripStatusCancelled {
+		t.Errorf("expected status %q, got %q", domain.TripStatusCancelled, updated.Status)
 	}
 
 	// RETURNING shows what the statement produced; re-reading proves what was stored.
@@ -130,8 +130,8 @@ func TestTripRepository_UpdateStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get trip: %v", err)
 	}
-	if stored.Status != domain.TripStatusAccepted {
-		t.Errorf("expected persisted status %q, got %q", domain.TripStatusAccepted, stored.Status)
+	if stored.Status != domain.TripStatusCancelled {
+		t.Errorf("expected persisted status %q, got %q", domain.TripStatusCancelled, stored.Status)
 	}
 }
 
@@ -142,7 +142,7 @@ func TestTripRepository_UpdateStatus_NotFound(t *testing.T) {
 		context.Background(),
 		math.MaxInt64,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	)
 	if !errors.Is(err, domain.ErrTripNotFound) {
 		t.Fatalf("expected ErrTripNotFound, got %v", err)
@@ -158,7 +158,7 @@ func TestTripRepository_UpdateStatus_Conflict(t *testing.T) {
 		context.Background(),
 		trip.ID,
 		domain.TripStatusRequested,
-		domain.TripStatusAccepted,
+		domain.TripStatusCancelled,
 	); err != nil {
 		t.Fatalf("first update: %v", err)
 	}
