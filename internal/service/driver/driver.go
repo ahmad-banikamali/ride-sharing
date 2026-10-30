@@ -2,16 +2,19 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"ride-sharing/internal/domain"
-	"ride-sharing/internal/service"
+	"time"
 )
+
+const dbTimeout = 5 * time.Second
 
 type Repository interface {
 	Create(ctx context.Context, driver domain.Driver) (domain.Driver, error)
 }
 
 type Validator interface {
-	ValidateInput(i *CreateInput) (bool, error)
+	Validate(i *CreateInput) error
 }
 
 type CreateInput struct {
@@ -25,25 +28,21 @@ type CreateOutput struct {
 
 type Service struct {
 	repository Repository
-	validator  InputValidator
+	validator  Validator
 }
 
-func NewService(repository Repository) *Service {
+func NewService(validator Validator) *Service {
 	return &Service{
-		repository: repository,
+		validator: validator,
 	}
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, error) {
-	validateInput, err := s.validator.ValidateInput(&input)
-	ctx, cancel := context.WithTimeout(ctx, service.DbTimeout)
+	err := s.validator.Validate(&input)
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 	if err != nil {
-		return CreateOutput{}, domain.ErrDriverValidationFailed
-	}
-
-	if !validateInput {
-		return CreateOutput{}, domain.ErrDriverInvalid
+		return CreateOutput{}, domain.ErrInvalidDriverInput
 	}
 
 	driver, err := s.repository.Create(ctx, domain.Driver{
@@ -51,10 +50,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, 
 	})
 
 	if err != nil {
-		return CreateOutput{}, domain.ErrDriverInvalid
+		return CreateOutput{}, fmt.Errorf("create driver error: %w", err)
 	}
 	return CreateOutput{
-		Id:   driver.Id,
+		Id:   driver.ID,
 		Name: driver.Name,
 	}, nil
 
