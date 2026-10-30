@@ -28,7 +28,7 @@ type AssignDriverInput struct {
 	DriverID int64
 }
 
-const dbTimeout = 5 * time.Second
+const DbTimeout = 5 * time.Second
 
 var validTripStatusTransitions = map[domain.TripStatus][]domain.TripStatus{
 	domain.TripStatusRequested: {
@@ -71,7 +71,7 @@ func NewTripService(repository TripRepository) *TripService {
 }
 
 func (s *TripService) CreateTrip(ctx context.Context, input CreateTripInput) (domain.Trip, error) {
-	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	ctx, cancel := context.WithTimeout(ctx, DbTimeout)
 	defer cancel()
 	//validate input
 	input.Pickup = strings.TrimSpace(input.Pickup)
@@ -93,7 +93,7 @@ func (s *TripService) CreateTrip(ctx context.Context, input CreateTripInput) (do
 }
 
 func (s *TripService) GetById(ctx context.Context, input GetTripInput) (domain.Trip, error) {
-	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	ctx, cancel := context.WithTimeout(ctx, DbTimeout)
 	defer cancel()
 	id, err := strconv.ParseInt(input.ID, 10, 64)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *TripService) GetById(ctx context.Context, input GetTripInput) (domain.T
 }
 
 func (s *TripService) UpdateTripStatus(ctx context.Context, input UpdateTripStatusInput) (domain.Trip, error) {
-	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	ctx, cancel := context.WithTimeout(ctx, DbTimeout)
 	defer cancel()
 	id, err := strconv.ParseInt(input.ID, 10, 64)
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *TripService) UpdateTripStatus(ctx context.Context, input UpdateTripStat
 }
 
 func (s *TripService) AssignDriver(ctx context.Context, input AssignDriverInput) (domain.Trip, error) {
-	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	ctx, cancel := context.WithTimeout(ctx, DbTimeout)
 	defer cancel()
 	id, err := strconv.ParseInt(input.TripID, 10, 64)
 	if err != nil {
