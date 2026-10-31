@@ -5,8 +5,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"ride-sharing/internal/domain"
-	"ride-sharing/internal/service/trip"
+	"ride-sharing/internal/trip"
+	"ride-sharing/internal/trip/service"
 	"strconv"
 )
 
@@ -35,11 +35,11 @@ type errorResponse struct {
 }
 
 type TripHandler struct {
-	service *trip.TripService
+	service *service.TripService
 }
 
-func NewTripHandler(service *trip.TripService) *TripHandler {
-	return &TripHandler{service: service}
+func NewTripHandler(svc *service.TripService) *TripHandler {
+	return &TripHandler{service: svc}
 }
 
 func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +49,9 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trip, err := h.service.CreateTrip(
+	created, err := h.service.CreateTrip(
 		r.Context(),
-		trip.CreateTripInput{
+		service.CreateTripInput{
 			Pickup:      req.Pickup,
 			Destination: req.Destination,
 		})
@@ -60,13 +60,13 @@ func (h *TripHandler) CreateTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toTripResponse(trip))
+	writeJSON(w, http.StatusCreated, toTripResponse(created))
 }
 
 func (h *TripHandler) GetTrip(w http.ResponseWriter, r *http.Request) {
-	trip, err := h.service.GetById(
+	found, err := h.service.GetById(
 		r.Context(),
-		trip.GetTripInput{
+		service.GetTripInput{
 			ID: r.PathValue("id"),
 		})
 	if err != nil {
@@ -74,7 +74,7 @@ func (h *TripHandler) GetTrip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toTripResponse(trip))
+	writeJSON(w, http.StatusOK, toTripResponse(found))
 }
 
 func (h *TripHandler) UpdateTripStatus(w http.ResponseWriter, r *http.Request) {
@@ -84,9 +84,9 @@ func (h *TripHandler) UpdateTripStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trip, err := h.service.UpdateTripStatus(
+	updated, err := h.service.UpdateTripStatus(
 		r.Context(),
-		trip.UpdateTripStatusInput{
+		service.UpdateTripStatusInput{
 			ID:     r.PathValue("id"),
 			Status: req.Status,
 		})
@@ -95,7 +95,7 @@ func (h *TripHandler) UpdateTripStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toTripResponse(trip))
+	writeJSON(w, http.StatusOK, toTripResponse(updated))
 }
 
 func (h *TripHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
@@ -109,7 +109,7 @@ func (h *TripHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid driver ID")
 	}
 
-	driver, err := h.service.AssignDriver(r.Context(), trip.AssignDriverInput{
+	driver, err := h.service.AssignDriver(r.Context(), service.AssignDriverInput{
 		TripID:   tripId,
 		DriverID: driverId,
 	})
@@ -121,12 +121,12 @@ func (h *TripHandler) AssignDriver(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toTripResponse(driver))
 }
 
-func toTripResponse(trip domain.Trip) TripResponse {
+func toTripResponse(t trip.Trip) TripResponse {
 	return TripResponse{
-		ID:          trip.ID,
-		Pickup:      trip.Pickup,
-		Destination: trip.Destination,
-		Status:      string(trip.Status),
+		ID:          t.ID,
+		Pickup:      t.Pickup,
+		Destination: t.Destination,
+		Status:      string(t.Status),
 	}
 }
 
@@ -135,17 +135,17 @@ func toTripResponse(trip domain.Trip) TripResponse {
 // log and never reaches the client.
 func writeServiceError(w http.ResponseWriter, op string, err error) {
 	switch {
-	case errors.Is(err, domain.ErrInvalidTripInput):
+	case errors.Is(err, trip.ErrInvalidTripInput):
 		writeError(w, http.StatusBadRequest, "pickup or destination required")
-	case errors.Is(err, domain.ErrInvalidTripID):
+	case errors.Is(err, trip.ErrInvalidTripID):
 		writeError(w, http.StatusBadRequest, "invalid trip ID")
-	case errors.Is(err, domain.ErrTripNotFound):
+	case errors.Is(err, trip.ErrTripNotFound):
 		writeError(w, http.StatusNotFound, "trip not found")
-	case errors.Is(err, domain.ErrInvalidTripStatus):
+	case errors.Is(err, trip.ErrInvalidTripStatus):
 		writeError(w, http.StatusUnprocessableEntity, "invalid trip status")
-	case errors.Is(err, domain.ErrInvalidTripTransition):
+	case errors.Is(err, trip.ErrInvalidTripTransition):
 		writeError(w, http.StatusConflict, "invalid trip status transition")
-	case errors.Is(err, domain.ErrTripStatusConflict):
+	case errors.Is(err, trip.ErrTripStatusConflict):
 		writeError(w, http.StatusConflict, "trip status changed concurrently")
 	default:
 		log.Printf("%s: %v", op, err)

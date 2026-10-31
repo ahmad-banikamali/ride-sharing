@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"ride-sharing/internal/domain"
-	"ride-sharing/internal/service"
-	"ride-sharing/internal/service/trip"
+	"ride-sharing/internal/trip"
+	"ride-sharing/internal/trip/service"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ import (
 
 func newTestHandler() *TripHandler {
 	fakeRepo := service.NewFakeTripRepository()
-	svc := trip.NewTripService(fakeRepo)
+	svc := service.NewTripService(fakeRepo)
 	return NewTripHandler(svc)
 }
 
@@ -107,8 +106,8 @@ func TestTripHandler_CreateTrip(t *testing.T) {
 			if body.Pickup != "Berlin" || body.Destination != "Hamburg" {
 				t.Errorf("unexpected payload: %+v", body)
 			}
-			if body.Status != string(domain.TripStatusRequested) {
-				t.Errorf("expected status %q, got %q", domain.TripStatusRequested, body.Status)
+			if body.Status != string(trip.StatusRequested) {
+				t.Errorf("expected status %q, got %q", trip.StatusRequested, body.Status)
 			}
 		})
 	}
@@ -170,8 +169,8 @@ func TestTripHandler_GetTrip(t *testing.T) {
 				t.Errorf("unexpected payload: %+v", body)
 			}
 			// This locks the regression: the trip's status must be visible.
-			if body.Status != string(domain.TripStatusRequested) {
-				t.Errorf("expected status %q, got %q", domain.TripStatusRequested, body.Status)
+			if body.Status != string(trip.StatusRequested) {
+				t.Errorf("expected status %q, got %q", trip.StatusRequested, body.Status)
 			}
 		})
 	}
@@ -191,7 +190,7 @@ func TestTripHandler_UpdateTripStatus(t *testing.T) {
 			createTrip: true,
 			bodies:     []string{`{"status":"cancelled"}`},
 			wantCode:   http.StatusOK,
-			wantStatus: string(domain.TripStatusCancelled),
+			wantStatus: string(trip.StatusCancelled),
 		},
 		{
 			name:       "requested to completed is illegal",
@@ -277,28 +276,28 @@ func TestTripHandler_UpdateTripStatus(t *testing.T) {
 // between the service's read and its conditional update.
 type conflictRepo struct{}
 
-func (conflictRepo) Save(ctx context.Context, trip domain.Trip) (domain.Trip, error) {
-	return trip, nil
+func (conflictRepo) Save(ctx context.Context, t trip.Trip) (trip.Trip, error) {
+	return t, nil
 }
 
-func (conflictRepo) GetById(ctx context.Context, id int64) (domain.Trip, error) {
-	return domain.Trip{ID: id, Status: domain.TripStatusRequested}, nil
+func (conflictRepo) GetById(ctx context.Context, id int64) (trip.Trip, error) {
+	return trip.Trip{ID: id, Status: trip.StatusRequested}, nil
 }
 
-func (conflictRepo) UpdateStatus(context.Context, int64, domain.TripStatus, domain.TripStatus) (domain.Trip, error) {
-	return domain.Trip{}, domain.ErrTripStatusConflict
+func (conflictRepo) UpdateStatus(context.Context, int64, trip.Status, trip.Status) (trip.Trip, error) {
+	return trip.Trip{}, trip.ErrTripStatusConflict
 }
 
 func (conflictRepo) AssignDriver(
 	context.Context,
 	int64,
 	int64,
-) (domain.Trip, error) {
-	return domain.Trip{}, domain.ErrTripStatusConflict
+) (trip.Trip, error) {
+	return trip.Trip{}, trip.ErrTripStatusConflict
 }
 
 func TestTripHandler_UpdateTripStatus_Conflict(t *testing.T) {
-	h := NewTripHandler(trip.NewTripService(conflictRepo{}))
+	h := NewTripHandler(service.NewTripService(conflictRepo{}))
 
 	rec := patchStatus(t, h, "1", `{"status":"cancelled"}`)
 

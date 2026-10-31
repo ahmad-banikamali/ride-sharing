@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"ride-sharing/internal/domain"
+	"ride-sharing/internal/trip"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -16,9 +16,9 @@ type TripRepository struct {
 func (r *TripRepository) UpdateStatus(
 	ctx context.Context,
 	id int64,
-	expectedStatus domain.TripStatus,
-	newStatus domain.TripStatus,
-) (domain.Trip, error) {
+	expectedStatus trip.Status,
+	newStatus trip.Status,
+) (trip.Trip, error) {
 	query := `
 		UPDATE trips
 		SET status = $1
@@ -26,7 +26,7 @@ func (r *TripRepository) UpdateStatus(
 		RETURNING id, pickup, destination, status
 	`
 
-	var trip domain.Trip
+	var result trip.Trip
 
 	err := r.db.QueryRowContext(
 		ctx,
@@ -35,36 +35,36 @@ func (r *TripRepository) UpdateStatus(
 		id,
 		expectedStatus,
 	).Scan(
-		&trip.ID,
-		&trip.Pickup,
-		&trip.Destination,
-		&trip.Status,
+		&result.ID,
+		&result.Pickup,
+		&result.Destination,
+		&result.Status,
 	)
 
 	if err == nil {
-		return trip, nil
+		return result, nil
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
-		return domain.Trip{}, err
+		return trip.Trip{}, err
 	}
 
 	_, getErr := r.GetById(ctx, id)
-	if errors.Is(getErr, domain.ErrTripNotFound) {
-		return domain.Trip{}, domain.ErrTripNotFound
+	if errors.Is(getErr, trip.ErrTripNotFound) {
+		return trip.Trip{}, trip.ErrTripNotFound
 	}
 	if getErr != nil {
-		return domain.Trip{}, getErr
+		return trip.Trip{}, getErr
 	}
 
-	return domain.Trip{}, domain.ErrTripStatusConflict
+	return trip.Trip{}, trip.ErrTripStatusConflict
 }
 
 func (r *TripRepository) AssignDriver(
 	ctx context.Context,
 	tripID int64,
 	driverID int64,
-) (domain.Trip, error) {
+) (trip.Trip, error) {
 	query := `
         UPDATE trips
         SET driver_id = $1,
@@ -75,7 +75,7 @@ func (r *TripRepository) AssignDriver(
         RETURNING id, pickup, destination, status, driver_id
     `
 
-	var trip domain.Trip
+	var result trip.Trip
 	var assignedDriverID sql.NullInt64
 
 	err := r.db.QueryRowContext(
@@ -84,32 +84,32 @@ func (r *TripRepository) AssignDriver(
 		driverID,
 		tripID,
 	).Scan(
-		&trip.ID,
-		&trip.Pickup,
-		&trip.Destination,
-		&trip.Status,
+		&result.ID,
+		&result.Pickup,
+		&result.Destination,
+		&result.Status,
 		&assignedDriverID,
 	)
 
 	if err == nil {
 		if !assignedDriverID.Valid {
-			return domain.Trip{}, domain.ErrUnknown
+			return trip.Trip{}, trip.ErrUnknown
 		}
 
-		trip.DriverID = &assignedDriverID.Int64
-		return trip, nil
+		result.DriverID = &assignedDriverID.Int64
+		return result, nil
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		_, getErr := r.GetById(ctx, tripID)
 
-		if errors.Is(getErr, domain.ErrTripNotFound) {
-			return domain.Trip{}, domain.ErrTripNotFound
+		if errors.Is(getErr, trip.ErrTripNotFound) {
+			return trip.Trip{}, trip.ErrTripNotFound
 		}
 		if getErr != nil {
-			return domain.Trip{}, getErr
+			return trip.Trip{}, getErr
 		}
 
-		return domain.Trip{}, domain.ErrTripStatusConflict
+		return trip.Trip{}, trip.ErrTripStatusConflict
 	}
 
 	var pgErr *pgconn.PgError
@@ -117,15 +117,15 @@ func (r *TripRepository) AssignDriver(
 		switch {
 		case pgErr.Code == "23503" &&
 			pgErr.ConstraintName == "trips_driver_id_fkey":
-			return domain.Trip{}, domain.ErrDriverNotFound
+			return trip.Trip{}, trip.ErrDriverNotFound
 
 		case pgErr.Code == "23505" &&
 			pgErr.ConstraintName == "unique_active_trip_per_driver":
-			return domain.Trip{}, domain.ErrDriverUnavailable
+			return trip.Trip{}, trip.ErrDriverUnavailable
 		}
 	}
 
-	return domain.Trip{}, err
+	return trip.Trip{}, err
 }
 
 func NewTripRepository(db *sql.DB) *TripRepository {
@@ -134,24 +134,24 @@ func NewTripRepository(db *sql.DB) *TripRepository {
 	}
 }
 
-func (r *TripRepository) Save(ctx context.Context, trip domain.Trip) (domain.Trip, error) {
+func (r *TripRepository) Save(ctx context.Context, t trip.Trip) (trip.Trip, error) {
 	q := "INSERT INTO trips (pickup, destination, status) VALUES ($1, $2, $3) RETURNING id"
-	err := r.db.QueryRowContext(ctx, q, trip.Pickup, trip.Destination, trip.Status).Scan(&trip.ID)
+	err := r.db.QueryRowContext(ctx, q, t.Pickup, t.Destination, t.Status).Scan(&t.ID)
 	if err != nil {
-		return domain.Trip{}, err
+		return trip.Trip{}, err
 	}
-	return trip, nil
+	return t, nil
 }
 
-func (r *TripRepository) GetById(ctx context.Context, id int64) (domain.Trip, error) {
-	var trip domain.Trip
+func (r *TripRepository) GetById(ctx context.Context, id int64) (trip.Trip, error) {
+	var result trip.Trip
 	q := "select id, pickup, destination, status from trips where id = $1"
-	err := r.db.QueryRowContext(ctx, q, id).Scan(&trip.ID, &trip.Pickup, &trip.Destination, &trip.Status)
+	err := r.db.QueryRowContext(ctx, q, id).Scan(&result.ID, &result.Pickup, &result.Destination, &result.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return domain.Trip{}, domain.ErrTripNotFound
+			return trip.Trip{}, trip.ErrTripNotFound
 		}
-		return domain.Trip{}, err
+		return trip.Trip{}, err
 	}
-	return trip, nil
+	return result, nil
 }

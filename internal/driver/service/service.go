@@ -1,16 +1,16 @@
-package driver
+package service
 
 import (
 	"context"
 	"fmt"
-	"ride-sharing/internal/domain"
+	"ride-sharing/internal/driver"
 	"time"
 )
 
 const dbTimeout = 5 * time.Second
 
 type Repository interface {
-	Create(ctx context.Context, driver domain.Driver) (domain.Driver, error)
+	Create(ctx context.Context, d driver.Driver) (driver.Driver, error)
 }
 
 type Validator interface {
@@ -45,10 +45,10 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, 
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
 	if err != nil {
-		return CreateOutput{}, domain.ErrInvalidDriverInput
+		return CreateOutput{}, driver.ErrInvalidDriverInput
 	}
 
-	driver, err := s.repository.Create(ctx, domain.Driver{
+	created, err := s.repository.Create(ctx, driver.Driver{
 		Name: input.Name,
 	})
 
@@ -56,8 +56,8 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (CreateOutput, 
 		return CreateOutput{}, fmt.Errorf("create driver error: %w", err)
 	}
 	return CreateOutput{
-		Id:   driver.ID,
-		Name: driver.Name,
+		Id:   created.ID,
+		Name: created.Name,
 	}, nil
 
 }

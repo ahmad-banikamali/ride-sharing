@@ -1,10 +1,10 @@
-package domain
+package trip
 
 import (
 	"errors"
 )
 
-type TripStatus string
+type Status string
 
 var ErrUnknown = errors.New("something went wrong")
 
@@ -20,17 +20,17 @@ var ErrDriverNotFound = errors.New("driver not found")
 var ErrDriverUnavailable = errors.New("driver unavailable")
 
 const (
-	TripStatusRequested  TripStatus = "requested"
-	TripStatusAccepted   TripStatus = "accepted"
-	TripStatusInProgress TripStatus = "in_progress"
-	TripStatusCompleted  TripStatus = "completed"
-	TripStatusCancelled  TripStatus = "cancelled"
+	StatusRequested  Status = "requested"
+	StatusAccepted   Status = "accepted"
+	StatusInProgress Status = "in_progress"
+	StatusCompleted  Status = "completed"
+	StatusCancelled  Status = "cancelled"
 )
 
 type Trip struct {
 	ID          int64
 	Pickup      string
 	Destination string
-	Status      TripStatus
+	Status      Status
 	DriverID    *int64
 }
